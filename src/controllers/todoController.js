@@ -1,68 +1,94 @@
-import Todo from "../models/Todo.js";
+import Todo from "../models/todoModel.js";
+
+// @desc    Get all todos for logged-in user
+// @route   GET /api/todos
+// @access  Private
+export const getTodos = async (req, res) => {
+  try {
+    const todos = await Todo.find({ user: req.user._id });
+    res.json({ success: true, count: todos.length, data: todos });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get single todo by ID
+// @route   GET /api/todos/:id
+// @access  Private
+export const getTodoById = async (req, res) => {
+  try {
+    const todo = await Todo.findOne({ _id: req.params.id, user: req.user._id });
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+    res.json(todo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // @desc    Create new todo
-export const createTodo = async (req, res, next) => {
+// @route   POST /api/todos
+// @access  Private
+export const createTodo = async (req, res) => {
   try {
-    const { title, description, dueDate } = req.body;
+    const { title, description } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
 
     const todo = await Todo.create({
       title,
       description,
-      dueDate,
-      user: req.user.id, // coming from auth middleware
+      status: "pending",
+      user: req.user._id,
     });
 
-    res.status(201).json({ success: true, data: todo });
-  } catch (err) {
-    next(err);
+    res.status(201).json(todo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all todos for logged-in user
-export const getTodos = async (req, res, next) => {
+// @desc    Update a todo
+// @route   PUT /api/todos/:id
+// @access  Private
+export const updateTodo = async (req, res) => {
   try {
-    const todos = await Todo.find({ user: req.user.id });
-    res.status(200).json({ success: true, count: todos.length, data: todos });
-  } catch (err) {
-    next(err);
+    const todo = await Todo.findOne({ _id: req.params.id, user: req.user._id });
+
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    todo.title = req.body.title || todo.title;
+    todo.description = req.body.description || todo.description;
+    todo.status = req.body.status || todo.status;
+
+    const updatedTodo = await todo.save();
+    res.json(updatedTodo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Update todo
-export const updateTodo = async (req, res, next) => {
+// @desc    Delete a todo
+// @route   DELETE /api/todos/:id
+// @access  Private
+export const deleteTodo = async (req, res) => {
   try {
-    let todo = await Todo.findById(req.params.id);
-
-    if (!todo) return res.status(404).json({ message: "Todo not found" });
-
-    if (todo.user.toString() !== req.user.id)
-      return res.status(401).json({ message: "Not authorized" });
-
-    todo = await Todo.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
+    const todo = await Todo.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id,
     });
 
-    res.status(200).json({ success: true, data: todo });
-  } catch (err) {
-    next(err);
-  }
-};
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
 
-// @desc    Delete todo
-export const deleteTodo = async (req, res, next) => {
-  try {
-    const todo = await Todo.findById(req.params.id);
-
-    if (!todo) return res.status(404).json({ message: "Todo not found" });
-
-    if (todo.user.toString() !== req.user.id)
-      return res.status(401).json({ message: "Not authorized" });
-
-    await todo.deleteOne();
-
-    res.status(200).json({ success: true, message: "Todo removed" });
-  } catch (err) {
-    next(err);
+    res.json({ message: "Todo removed" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
