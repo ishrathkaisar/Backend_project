@@ -29,4 +29,28 @@ router.get("/test", (req, res) => {
   res.json({ message: "Auth routes working" });
 });
 
+router.post("/email/send-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    //generate token (JWT or random string)
+    const token = generateVerificationToken(user);
+
+    // send email
+    const VerificationUrl = 'http://localhost:5173/verify-email?token=${token}';
+     await sendEmail({
+      to: email,
+      subject: "Verify your email",
+      html: '<P>Click <a href="${verificationUrl}">here</a> to verify your email</p>',
+     });
+
+     res.status(200).json({ message: "Verification email sent" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to send verification email" });
+  }
+});
+
 export default router;

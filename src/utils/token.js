@@ -21,3 +21,15 @@ export function generateTokens(userId) {
 export function verifyToken(token, secret) {
   return jwt.verify(token, secret);
 }
+
+const jwt = require("jsonwebtoken");
+
+function generateVerificationToken(user) {
+  return jwt.sign(
+    { userId: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+}
+
+module.exports = { generateVerificationToken };
