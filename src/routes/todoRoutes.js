@@ -1,22 +1,19 @@
 import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
 import {
+  createTodo,
   getTodos,
   getTodoById,
-  createTodo,
   updateTodo,
   deleteTodo,
 } from "../controllers/todoController.js";
-import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.route("/")
-  .get(protect, getTodos)
-  .post(protect, createTodo);
-
-router.route("/:id")
-  .get(protect, getTodoById)
-  .put(protect, updateTodo)
-  .delete(protect, deleteTodo);
+router.post("/", protect, createTodo);
+router.get("/", protect, getTodos);
+router.get("/:id", protect, getTodoById);
+router.put("/:id", protect, updateTodo);
+router.delete("/:id", protect, deleteTodo);
 
 export default router;
