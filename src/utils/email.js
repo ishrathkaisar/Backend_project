@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmail({ to, subject, html }) {
-    RETURN transporter.sendMail({
+    return transporter.sendMail({
         from: process.env.EMAIL_USER,
         to,
         subject,
