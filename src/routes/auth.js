@@ -2,28 +2,9 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../models/userModel.js"; // Ensure file exists and exports User model
+import User from "../models/userModel.js";
 
 const router = express.Router();
-
-/* ------------------------
-   Helper: Generate Tokens
-------------------------- */
-const generateTokens = (user) => {
-  const accessToken = jwt.sign(
-    { userId: user._id, email: user.email },
-    process.env.ACCESS_SECRET || "ACCESS_SECRET_KEY",
-    { expiresIn: "15m" } // short-lived
-  );
-
-  const refreshToken = jwt.sign(
-    { userId: user._id, email: user.email },
-    process.env.REFRESH_SECRET || "REFRESH_SECRET_KEY",
-    { expiresIn: "7d" } // long-lived
-  );
-
-  return { accessToken, refreshToken };
-};
 
 /* ------------------------
    REGISTER
@@ -33,30 +14,72 @@ router.post("/register", async (req, res) => {
     const { name, email, password } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
+    // Check if user exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // Create new user
     const newUser = new User({
       name,
       email: normalizedEmail,
-      password, // raw password → will be hashed by pre-save hook
+      password, // password will be hashed in pre-save hook
     });
     await newUser.save();
+
+    // Generate email verification token
+    const emailToken = jwt.sign(
+      { userId: newUser._id, email: newUser.email },
+      process.env.EMAIL_SECRET || "EMAIL_SECRET_KEY",
+      { expiresIn: "1h" }
+    );
+
+    const verificationUrl = `http://localhost:5000/api/auth/verify-email/${emailToken}`;
 
     return res.status(201).json({
       user: {
         id: newUser._id,
         userName: newUser.name,
-        email: normalizedEmail,
+        email: newUser.email,
       },
+      emailToken,
+      verificationUrl,
     });
   } catch (err) {
     console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
+/* ------------------------
+   VERIFY EMAIL
+------------------------- */
+router.get("/verify-email/:token", async (req, res) => {
+  try {
+    const decoded = jwt.verify(
+  req.params.token,
+  process.env.EMAIL_SECRET || "EMAIL_SECRET_KEY"
+);
+
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: "User already verified" });
+    }
+
+    user.isEmailVerified = true;
+    await user.save();
+
+    return res.json({ message: "Email verified successfully ✅" });
+  } catch (err) {
+    console.error("Email verify error:", err.message);
+    return res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
 
 /* ------------------------
    LOGIN
@@ -83,20 +106,23 @@ router.post("/login", async (req, res) => {
       { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
     );
 
-    // ✅ This return is legal because it's inside the route
+    // ⚡ Do NOT block login — just include verification status in response
     return res.json({
       user: {
         id: user._id,
         userName: user.name,
         email: user.email,
+        isEmailVerified: user.isEmailVerified, // helpful info for frontend
       },
       accessToken,
       refreshToken,
     });
   } catch (err) {
+    console.error("Login error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
+
 
 /* ------------------------
    REFRESH TOKEN
@@ -121,13 +147,10 @@ router.post("/refresh", (req, res) => {
   }
 });
 
-
 /* ------------------------
    LOGOUT
 ------------------------- */
 router.post("/logout", (req, res) => {
-  // If you're storing refresh tokens in DB, remove it here.
-  // If not, just tell client to delete tokens.
   return res.status(200).json({ message: "Logged out successfully" });
 });
 
@@ -139,3 +162,64 @@ router.get("/test", (req, res) => {
 });
 
 export default router;
+
+/* ------------------------
+   FORGOT PASSWORD
+------------------------- */
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate reset token (valid 15 min)
+    const resetToken = jwt.sign(
+      { userId: user._id },
+      process.env.RESET_SECRET || "RESET_SECRET_KEY",
+      { expiresIn: "15m" }
+    );
+
+    // Reset link
+    const resetUrl = `http://localhost:5000/api/auth/reset-password/${resetToken}`;
+
+    // TODO: send email with resetUrl (use nodemailer)
+    console.log("Reset URL:", resetUrl);
+
+    return res.json({
+      message: "Password reset link generated",
+      resetToken,
+      resetUrl,
+    });
+  } catch (err) {
+    console.error("Forgot password error:", err.message);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ------------------------
+   RESET PASSWORD
+------------------------- */
+router.post("/reset-password/:token", async (req, res) => {
+  try {
+    const decoded = jwt.verify(
+      req.params.token,
+      process.env.RESET_SECRET || "RESET_SECRET_KEY"
+    );
+
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { newPassword } = req.body;
+    if (!newPassword) return res.status(400).json({ message: "New password required" });
+
+    user.password = newPassword; // pre-save hook will hash it
+    await user.save();
+
+    return res.json({ message: "Password reset successfully ✅" });
+  } catch (err) {
+    console.error("Reset password error:", err.message);
+    return res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
