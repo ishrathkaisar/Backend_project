@@ -2,65 +2,69 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../models/userModel.js";  // Ensure this file is named User.js, not User without extension
-import {
-  registerUser,
-  loginUser,
-  refreshToken,
-  logoutUser,
-  verifyEmail,
-  forgotPassword,
-  resetPassword
-} from "../controllers/authController.js";
+import User from "../models/userModel.js"; // Ensure file exists and exports User model
 
 const router = express.Router();
 
 /* ------------------------
-   Register (inline example)
+   REGISTER
 ------------------------- */
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    // normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // check if already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword });
-    await newUser.save();
+   const newUser = new User({
+  name,
+  email: normalizedEmail,
+  password, // raw password → will be hashed by pre-save hook
+});
+await newUser.save();
 
     return res.status(201).json({
       user: {
         id: newUser._id,
         userName: newUser.name,
-        email: newUser.email,
+        email: normalizedEmail, // always return normalized email
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 /* ------------------------
-   Login (inline example)
+   LOGIN
 ------------------------- */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // check if user exists
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: "User does not exist" });
     }
 
+    // compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid password" });
     }
 
+    // generate JWT
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || "YOUR_SECRET_KEY",
@@ -71,28 +75,21 @@ router.post("/login", async (req, res) => {
       user: {
         id: user._id,
         userName: user.name,
-        email: user.email,
-        avatarUrl: user.avatarUrl || null,
+        email: user.email, // always normalized already
       },
       token,
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 /* ------------------------
-   Controller-based routes
+   TEST ROUTE
 ------------------------- */
-router.post("/refresh", refreshToken);
-router.post("/logout", logoutUser);
-router.post("/verify-email", verifyEmail);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
-
 router.get("/test", (req, res) => {
-  res.json({ message: "Auth routes working" });
+  res.json({ message: "Auth routes working ✅" });
 });
 
 export default router;
