@@ -9,20 +9,17 @@ export const protect = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // 🔹 Here: make sure you match what you put inside the token at login
-      req.user = await User.findById(decoded.id).select("-password");
+      req.user = await User.findById(decoded.userId).select("-password");
 
       if (!req.user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      next();
+      return next();
     } catch (error) {
       return res.status(401).json({ message: "Not authorized, token failed" });
     }
   }
 
-  if (!token) {
-    return res.status(401).json({ message: "Not authorized, no token" });
-  }
+  return res.status(401).json({ message: "Not authorized, no token" });
 };
