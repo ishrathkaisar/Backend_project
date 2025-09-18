@@ -202,18 +202,25 @@ router.post("/forgot-password", async (req, res) => {
 ------------------------- */
 router.post("/reset-password/:token", async (req, res) => {
   try {
+    const { newPassword } = req.body;
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password is required" });
+    }
+
+    // Verify token
     const decoded = jwt.verify(
       req.params.token,
       process.env.RESET_SECRET || "RESET_SECRET_KEY"
     );
 
+    // Find user
     const user = await User.findById(decoded.userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    const { newPassword } = req.body;
-    if (!newPassword) return res.status(400).json({ message: "New password required" });
-
-    user.password = newPassword; // pre-save hook will hash it
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
     await user.save();
 
     return res.json({ message: "Password reset successfully ✅" });
@@ -222,4 +229,5 @@ router.post("/reset-password/:token", async (req, res) => {
     return res.status(400).json({ message: "Invalid or expired token" });
   }
 });
+
 
