@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 
 // REGISTER
-export const registerController = async (req, res, next) => {
+export const registerController = async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
@@ -21,19 +21,29 @@ export const registerController = async (req, res, next) => {
       { expiresIn: "1h" }
     );
 
-    const verificationUrl = `http://localhost:5000/api/auth/verify-email/${emailToken}`;
+    const verificationUrl = `http://localhost:5000/api/auth/verify-email?token=${emailToken}`;
 
     res.status(201).json({
-      user: { id: newUser._id, userName: newUser.name, email: newUser.email },
-      emailToken,
+      message: "User registered successfully. Please verify your email.",
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+      },
+      token: emailToken,     // ✅ Add token if you want to see it
       verificationUrl,
     });
   } catch (err) {
-    next(err);
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// LOGIN
+
+
+/* ============================
+   LOGIN
+============================ */
 export const loginController = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -58,7 +68,7 @@ export const loginController = async (req, res, next) => {
     res.json({
       user: {
         id: user._id,
-        userName: user.name,
+        name: user.name,
         email: user.email,
         isEmailVerified: user.isEmailVerified,
       },
@@ -70,7 +80,9 @@ export const loginController = async (req, res, next) => {
   }
 };
 
-// REFRESH
+/* ============================
+   REFRESH TOKEN
+============================ */
 export const refreshController = (req, res, next) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(401).json({ message: "Refresh token required" });
@@ -90,12 +102,16 @@ export const refreshController = (req, res, next) => {
   }
 };
 
-// LOGOUT
+/* ============================
+   LOGOUT
+============================ */
 export const logoutController = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
-// FORGOT PASSWORD
+/* ============================
+   FORGOT PASSWORD
+============================ */
 export const forgotPasswordController = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -117,7 +133,9 @@ export const forgotPasswordController = async (req, res, next) => {
   }
 };
 
-// RESET PASSWORD
+/* ============================
+   RESET PASSWORD
+============================ */
 export const resetPasswordController = async (req, res, next) => {
   try {
     const { newPassword } = req.body;
@@ -139,5 +157,31 @@ export const resetPasswordController = async (req, res, next) => {
     res.json({ message: "Password reset successfully ✅" });
   } catch (err) {
     next(err);
+  }
+};
+
+/* ============================
+   VERIFY EMAIL
+============================ */
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const token = req.query.token || req.body.token; // from query or body
+    if (!token) {
+      return res.status(400).json({ message: "Token is missing" });
+    }
+
+    const decoded = jwt.verify(token, process.env.EMAIL_SECRET || "EMAIL_SECRET_KEY");
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.isEmailVerified = true;
+    await user.save();
+
+    res.status(200).json({ message: "Email verified successfully ✅" });
+  } catch (error) {
+    next(error);
   }
 };

@@ -5,18 +5,23 @@ import path from "path";
 
 
 // Create todo
-export const createTodo = async (req, res) => {
+export const createTodo = async (req, res, next) => {
   try {
+    const { title, description } = req.body;
+
     const todo = await Todo.create({
-      title: req.body.title,
-      description: req.body.description,
-      user: req.user.id,
+      title,
+      description,
+      user: req.user.id   // 👈 match schema field name
     });
+
     res.status(201).json(todo);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
+
+
 
 // Get todos (with pagination, search, filter)
 export const getTodos = async (req, res) => {
@@ -188,29 +193,21 @@ export const uploadTodoImage = async (req, res) => {
 // Delete image from a todo
 export const deleteTodoImage = async (req, res) => {
   try {
-    const todo = await Todo.findOne({ _id: req.params.id, user: req.user._id });
+    const todo = await Todo.findById(req.params.id);
     if (!todo) return res.status(404).json({ message: "Todo not found" });
 
-    if (!todo.image) {
-      return res.status(400).json({ message: "No image to delete" });
+    if (todo.image) {
+      const filePath = path.join("uploads", todo.image);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      todo.image = undefined;
+      await todo.save();
     }
 
-    // Get file path from stored image URL
-    const filePath = path.join(process.cwd(), "src", todo.image);
-
-    // Delete file from filesystem (optional)
-    fs.unlink(filePath, (err) => {
-      if (err) {
-        console.warn("⚠️ Could not delete image file:", err.message);
-      }
-    });
-
-    // Remove image from todo document
-    todo.image = undefined;
-    await todo.save();
-
-    res.json({ message: "Image deleted successfully", todo });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    // ✅ Always respond with success
+    res.json({ message: "Image deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
