@@ -1,4 +1,3 @@
-// src/models/User.js
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -21,18 +20,18 @@ const userSchema = new mongoose.Schema({
     minlength: 6
   },
 
-  // 🔹 Email verification fields
+  // Email verification
   isEmailVerified: {
     type: Boolean,
     default: false
   },
   emailVerificationToken: String,
 
-  // 🔹 Password reset fields
+  // Password reset
   passwordResetToken: String,
   passwordResetExpires: Date,
 
-  // 🔹 Track login activity
+  // Track login activity
   lastLoginAt: Date,
 
   createdAt: {
@@ -45,21 +44,18 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// 🔹 Pre-save hook to hash password if modified
+// Hash password before save
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-
   next();
 });
 
-// 🔹 Method to compare entered password with hashed password
+// Compare password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const User = mongoose.model("User", userSchema);
-
 export default User;
