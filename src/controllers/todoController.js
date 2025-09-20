@@ -7,12 +7,13 @@ import path from "path";
 // Create todo
 export const createTodo = async (req, res, next) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, dateTime } = req.body; // 👈 accept dateTime
 
     const todo = await Todo.create({
       title,
       description,
-      user: req.user.id   // 👈 match schema field name
+      dateTime, // 👈 save it
+      user: req.user.id
     });
 
     res.status(201).json(todo);
@@ -20,7 +21,6 @@ export const createTodo = async (req, res, next) => {
     next(error);
   }
 };
-
 
 
 // Get todos (with pagination, search, filter)
@@ -76,6 +76,7 @@ export const updateTodo = async (req, res) => {
     todo.title = req.body.title || todo.title;
     todo.description = req.body.description || todo.description;
     todo.status = req.body.status || todo.status;
+    todo.dateTime = req.body.dateTime || todo.dateTime;
     await todo.save();
 
     res.json(todo);
