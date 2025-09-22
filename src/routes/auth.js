@@ -1,7 +1,5 @@
 import express from "express";
 import { body } from "express-validator";
-import jwt from "jsonwebtoken";
-import { handleValidation } from "../middleware/validation.js";
 import {
   registerController,
   loginController,
@@ -12,12 +10,11 @@ import {
   verifyEmail,
 } from "../controllers/authController.js";
 import { authRateLimiter } from "../middleware/rateLimiter.js";
+import { handleValidation } from "../middleware/validation.js";
 
 const router = express.Router();
 
-/* ------------------------
-   REGISTER
-------------------------- */
+// ✅ Register
 router.post(
   "/register",
   [
@@ -26,22 +23,17 @@ router.post(
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 chars"),
     handleValidation,
   ],
-  registerController // ✅ delegate logic to controller
+  registerController
 );
 
-/* ------------------------
-   AUTH ROUTES
-------------------------- */
+// ✅ Auth routes
 router.post("/login", authRateLimiter, loginController);
 router.post("/refresh", refreshController);
 router.post("/logout", logoutController);
 router.post("/forgot-password", authRateLimiter, forgotPasswordController);
 router.post("/reset-password/:token", resetPasswordController);
 
-/* ------------------------
-   VERIFY EMAIL
-------------------------- */
+// ✅ Email verification
 router.get("/verify-email", verifyEmail);
-
 
 export default router;

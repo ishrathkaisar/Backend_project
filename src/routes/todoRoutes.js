@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
-import upload from "../middleware/uploadMiddleware.js"; // ✅ already created middleware
+import upload from "../middleware/uploadMiddleware.js"; 
 import {
   createTodo,
   getTodos,

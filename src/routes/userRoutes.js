@@ -1,20 +1,26 @@
+// userRoutes.js
 import express from 'express';
-import { registerUser, loginUser } from '../controllers/userController.js';
-import { getUserProfile, updateUserProfile, deleteUserAccount } from "../controllers/userController.js";
+import { registerUser, loginUser, getUserProfile, updateUserProfile, deleteUserAccount, uploadProfileImage } from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
 router.route("/profile")
-   .get(protect, getUserProfile)    // GET user profile
-   .put(protect, updateUserProfile);// UPDATE profile
+   .get(protect, getUserProfile)    
+   .put(protect, updateUserProfile);
 
-router.delete("/account", protect, deleteUserAccount); // DELETE account   
+router.delete("/account", protect, deleteUserAccount);
 
-// Register route
 router.post('/register', registerUser);
-
-// Login route
 router.post('/login', loginUser);
+
+// ✅ Profile image upload route (ONLY ONCE)
+router.post(
+  "/:userId/upload-profile",
+  protect,
+  upload.single("profileImage"),
+  uploadProfileImage
+);
 
 export default router;

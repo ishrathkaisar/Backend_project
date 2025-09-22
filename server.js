@@ -32,6 +32,9 @@ app.use("/api/users", userRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
+// ✅ Serve uploads as static files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);

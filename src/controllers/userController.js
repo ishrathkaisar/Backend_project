@@ -25,10 +25,11 @@ export const registerUser = async (req, res) => {
     });
 
     res.status(201).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-    });
+  _id: user.id,
+  name: user.name,
+  email: user.email,
+  photoUrl: user.profileImage || null,
+});
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -47,11 +48,13 @@ export const loginUser = async (req, res) => {
       });
 
       res.json({
-        _id: user.id,
-        name: user.name,
-        email: user.email,
-        token,
-      });
+  _id: user.id,
+  name: user.name,
+  email: user.email,
+  token,
+  photoUrl: user.profileImage || null, // send profile image too
+});
+
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -114,3 +117,30 @@ export const deleteUserAccount = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+export const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Save **absolute URL** instead of relative path
+    const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    user.profileImage = imageUrl;
+    await user.save();
+
+    res.json({
+      message: "Profile image uploaded successfully ✅",
+      photoUrl: imageUrl,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+

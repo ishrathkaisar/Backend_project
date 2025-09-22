@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema({
   },
   emailVerificationToken: String,
 
+   profileImage: { type: String, default: null },
+
   // Password reset
   passwordResetToken: String,
   passwordResetExpires: Date,
