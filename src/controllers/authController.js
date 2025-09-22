@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import { sendEmail } from "../services/emailService.js";
 
 // REGISTER
 export const registerController = async (req, res) => {
@@ -7,31 +8,50 @@ export const registerController = async (req, res) => {
     const { name, email, password } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
+    // check if user exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // create user
     const newUser = new User({ name, email: normalizedEmail, password });
     await newUser.save();
 
+    // generate email verification token
     const emailToken = jwt.sign(
       { userId: newUser._id, email: newUser.email },
       process.env.EMAIL_SECRET || "EMAIL_SECRET_KEY",
       { expiresIn: "1h" }
     );
 
-    const verificationUrl = `http://localhost:5000/api/auth/verify-email?token=${emailToken}`;
+    // Railway / production URL instead of localhost
+    const verificationUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${emailToken}`;
 
+    // ✅ send email
+    await sendEmail({
+      to: newUser.email,
+      subject: "Verify your email",
+      html: `
+        <h2>Welcome, ${newUser.name} 🎉</h2>
+        <p>Thanks for signing up! Please verify your email by clicking below:</p>
+        <a href="${verificationUrl}" 
+           style="padding:10px 20px; background:#007bff; color:#fff; text-decoration:none; border-radius:5px;">
+          Verify Email
+        </a>
+        <p>If you did not create this account, you can ignore this email.</p>
+      `,
+      text: `Verify your email by visiting this link: ${verificationUrl}`,
+    });
+
+    // ✅ response
     res.status(201).json({
-      message: "User registered successfully. Please verify your email.",
+      message: "User registered successfully. Verification email sent.",
       user: {
         id: newUser._id,
         name: newUser.name,
         email: newUser.email,
       },
-      token: emailToken,     // ✅ Add token if you want to see it
-      verificationUrl,
     });
   } catch (err) {
     console.error("Register error:", err);
