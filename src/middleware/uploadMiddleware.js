@@ -1,17 +1,25 @@
+// src/middleware/uploadMiddleware.js
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
-// Configure storage
+// ✅ Ensure uploads folder exists (absolute path, works on Railway too)
+const uploadDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// ✅ Configure storage (only once!)
 const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, "uploads/"); // folder to save images
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
   },
-  filename(req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // unique name
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
   },
 });
 
-// File filter (only images)
+// ✅ File filter (only allow jpeg, jpg, png)
 function fileFilter(req, file, cb) {
   const allowedTypes = /jpeg|jpg|png/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -24,6 +32,7 @@ function fileFilter(req, file, cb) {
   }
 }
 
+// ✅ Initialize multer with this storage + filter + limits
 const upload = multer({
   storage,
   fileFilter,

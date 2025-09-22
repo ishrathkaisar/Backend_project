@@ -119,6 +119,7 @@ export const deleteUserAccount = async (req, res) => {
 };
 
 
+// Upload Profile Image
 export const uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
@@ -130,17 +131,24 @@ export const uploadProfileImage = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Save **absolute URL** instead of relative path
-    const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-    user.profileImage = imageUrl;
+    // Build full public URL (http://host/uploads/filename)
+    const photoUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    user.profileImage = photoUrl;
     await user.save();
 
     res.json({
-      message: "Profile image uploaded successfully ✅",
-      photoUrl: imageUrl,
+      message: "Profile image uploaded successfully",
+      photoUrl, // ✅ return full URL
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        photoUrl,
+      },
     });
   } catch (error) {
+    console.error("Upload error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
